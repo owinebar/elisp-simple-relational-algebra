@@ -51,11 +51,14 @@
 ;; cannot require the evaluation of the complement or inverse expression
 
 
+(defconst sra--default-initial-domain-size 20)
+
 (cl-defstruct
     (sra-domain
      (:conc-name sra--domain-)
      (:constructor sra--create-domain))
   name
+  size
   store
   rstore
   elt-test
@@ -64,13 +67,24 @@
   elt-hash
   make-set)
 
-(defun sra-create-domain (name &optional elt-eq elt-eq-hash-fxn)
+(defun sra-create-domain (name &optional elt-eq elt-eq-hash-fxn values)
   "Create a domain"
-  (when elt-eq-test-name
-    (unless (and elt-eq elt-eq-hash-fxn)
-      (let ((fxns (get elt-eq-test-name 'hash-table-test)))
-	(when fxns
-	  (unless elt-eq
+  (unless (and elt-eq elt-eq-hash-fxn)
+    (let ((fxns (get name 'hash-table-test)))
+      (when fxns
+	(setq elt-eq (car fxns))
+	(setq elt-eq-hash-fxn (cadr fxns)))
+      (unless fxns
+	(setq elt-eq #'eql)
+	(setq elt-eq-hash-fxn #'sxhash-eql))))
+  (define-hash-table-test name elt-eq elt-eq-hash-fxn)
+  (let ((d (sra--create-domain name
+			       (make-hash-table :test name)
+			       
+  (put name 'domain
+       
+  
+  (
   (unless elt-eq-hash-fxn
     (setq elt-eq-hash-fxn #'sxhash-eql))
     (define
