@@ -41,6 +41,8 @@
 ;; relex (relational expression)
 ;; relex = constant
 ;;       | variable
+;;       | (bind ((variable relex) ...) relex)
+;;       | (compose relex relex)
 ;;       | (union relex relex)
 ;;       | (star relex)
 ;;       | (plus relex)
@@ -51,7 +53,10 @@
 ;; cannot require the evaluation of the complement or inverse expression
 
 
-(defconst sra--default-initial-domain-size 20)
+(defvar sra--default-initial-domain-size 20
+  "")
+
+
 
 (cl-defstruct
     (sra-domain
@@ -61,14 +66,21 @@
   size
   store
   rstore
+  ;; may be nil
+  roots
+  generator
   elt-test
+  elt-hash-test
   elt-eq
-  elt-eq-name
   elt-hash
   make-set)
 
-(defun sra-create-domain (name &optional elt-eq elt-eq-hash-fxn values)
+(defun sra-create-domain (name &optional hash-test values generator)
   "Create a domain"
+  (let (elt-eq elt-eq-hash-fxn)
+    (when (symbolp hash-test)
+      (let ((fxns (get hash-test 'hash-table-test)))
+	(
   (unless (and elt-eq elt-eq-hash-fxn)
     (let ((fxns (get name 'hash-table-test)))
       (when fxns
