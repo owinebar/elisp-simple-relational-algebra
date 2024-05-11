@@ -21,10 +21,58 @@
 ;; nil or function that takes 1 argument - a cons cell X
 ;; After the iterator returns,
 ;;  (car X) = next value, which must be atomic
-;;  (cdr X) = iterator for tail, or nil
+;;  (cdr X) = thunk returning iterator for tail, or nil
 ;; iterator must not create additional references to X or pass to functions
 ;; which might do so
 
+
+(defun sra-make-iterator (next rest)
+  "Make an iterator for the sra package.
+
+NEXT - next item returned in sequence being iterated over.
+REST - thunk returning iterator for rest of the sequence, or nil."
+  (cons next rest))
+
+(defmacro sra-iter-dispatch (val &rest clauses)
+  "Handle dispatch clauses of an iterator"
+  (let* ((iter-var (gensym "sra--iter-var"))
+	 (iter-val (gensym "sra--iter-val"))
+	 (cases (mapcar (lambda (c)
+			  (sra--iter-dispatch-clause iter-val c))
+			clauses))
+	 (null-case (assoc 0 cases))
+	 (single-case (assoc 1 cases))
+	 (pair-case (assoc 2 cases)))
+    `(let ((,iter-var ,val))
+       (if ,iter-var
+	   (let ((,iter-val (,iter-var)))
+	     (cond
+	      ((null ,iter-val)
+	       ,(if null-case
+		    (cdr null-case)
+		  'nil))
+	      ,@(if single-case
+		    `(((null (cdr ,iter-val))
+		       ,(cdr single-case)))
+		  '())
+	      ,@(if pair-case
+		    `(,(cdr pair-case))
+		  `((t nil)))))))))
+
+(defun sra--iter-dispatch-clause (var clause)
+  "Handle individual clause of sra-iter-dispatch"
+  (pcase clause
+    (`(() ,body)
+     `(0 . ,body))
+    (`((,head-var) ,body)
+     `(1 . (let ((,head-var (car ,var)))
+	     ,body)))
+    (`((,head-var ,tail-var) ,body)
+     `(2 . (let ((,head-var (car ,var))
+		 (,tail-var (cdr ,var)))
+	     ,body)))
+    (_ (error "Unrecognized iter dispatch clause form %s" clause))))
+   
 ;; domain
 ;; enumeration of values in a domain
 ;;
@@ -53,8 +101,8 @@
 ;; cannot require the evaluation of the complement or inverse expression
 
 
-(defvar sra--default-initial-domain-size 20
-  "")
+(defvar sra--default-max-domain-size 1024
+  "Default maximum number of elements in a domain")
 
 
 
